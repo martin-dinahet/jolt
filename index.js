@@ -10,7 +10,7 @@ import { Lexer } from "./src/lexer.js";
   }
   try {
     const source = fs.readFileSync(filePath, "utf-8");
-    const keywords = ["let"];
+    const keywords = fs.readFileSync("./keywords.txt", "utf-8").split("\n");
     const lexer = new Lexer(source, keywords);
     const tokens = lexer.generate_tokens();
     if (lexer.has_error()) {
