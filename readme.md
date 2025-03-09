@@ -45,13 +45,12 @@ pnpm install
 ## Usage
 ```sh
 pnpm run start <input-file.jolt>
+```
 
 ## Roadmap
 - [x] Lexer
 - [ ] Parser
 - [ ] Interpreter
-
-```
 
 ## Contributing
 Contributions are welcome! Feel free to open issues and pull requests.
