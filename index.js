@@ -13,7 +13,17 @@ import { Lexer } from "./src/lexer.js";
     const keywords = ["let"];
     const lexer = new Lexer(source, keywords);
     const tokens = lexer.generate_tokens();
-    console.log(tokens);
+    if (lexer.has_error()) {
+      console.error("Lexing errors occurred: ");
+      lexer.get_errors().forEach((error) => {
+        console.error(error.toString());
+      });
+    } else {
+      console.log("Lexing successul!");
+      tokens.forEach((token) => {
+        console.log(token.toString());
+      });
+    }
   } catch (err) {
     console.error("Error reading the file:", err);
     process.exit(1);
