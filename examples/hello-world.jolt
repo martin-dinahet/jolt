@@ -1,0 +1,4 @@
+const main = () -> Void {
+  std::print("Hello, World!");
+};
+
