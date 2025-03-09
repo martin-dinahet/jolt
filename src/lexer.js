@@ -220,11 +220,13 @@ export class Lexer {
         throw this.report_error(UnterminatedStringError);
       }
       this.flush_buffer();
+      this.add_token("eof", "eof");
       return this.tokens;
     } catch (error) {
       if (!(error instanceof LexerError)) {
         console.error("Unexpected error during lexing: ", error);
       }
+      this.add_token("eof", "eof");
       return this.tokens;
     }
   }
