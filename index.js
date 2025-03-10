@@ -11,9 +11,11 @@ import { Lexer } from "./src/lexer.js";
   try {
     const source = fs.readFileSync(filePath, "utf-8");
     const keywords = fs.readFileSync("./keywords.txt", "utf-8").split("\n");
+
+    // lexing
     const lexer = new Lexer(source, keywords);
     const tokens = lexer.generate_tokens();
-    if (lexer.has_error()) {
+    if (lexer.has_errors()) {
       console.error("Lexing errors occurred: ");
       lexer.get_errors().forEach((error) => {
         console.error(error.toString());
