@@ -1,7 +1,7 @@
 export class LexerError extends Error {
   constructor(message) {
     super(message);
-    this.name = "Lexer Error";
+    this.name = "LexerError";
   }
 
   to_string() {
@@ -23,9 +23,27 @@ export class InvalidCharacterError extends LexerError {
   }
 }
 
-export class UnexpectedTokenError extends LexerError {
+export class UnexpectedCharacter extends LexerError {
   constructor() {
-    super("unexpected token");
+    super("unexpected character");
+    this.name = "UnexpectedCharacterError";
+  }
+}
+
+export class ParserError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ParserError";
+  }
+
+  to_string() {
+    return `${this.name}: ${this.message}.`;
+  }
+}
+
+export class UnexpectedTokenError extends ParserError {
+  constructor() {
+    super("unexpected character");
     this.name = "UnexpectedTokenError";
   }
 }

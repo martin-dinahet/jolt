@@ -4,7 +4,7 @@ export class Token {
     this.value = value;
   }
 
-  toString() {
+  to_string() {
     return `Token(${this.type}, ${this.value})`;
   }
 }
