@@ -34,11 +34,9 @@ export class Parser {
     if (this.current_token().type !== type) {
       return false;
     }
-
     if (value !== null && this.current_token().value !== value) {
       return false;
     }
-
     return true;
   }
 
@@ -50,7 +48,6 @@ export class Parser {
       );
       return null;
     }
-
     const token = this.current_token();
     this.advance();
     return token;
@@ -70,12 +67,20 @@ export class Parser {
 
   get_precedence(operator) {
     const precedences = {
-      "=": 0, // Assignment has lowest precedence
-      "+": 1,
-      "-": 1,
-      "*": 2,
-      "/": 2,
-      "::": 3, // Namespace access has high precedence
+      "=": 0,
+      "||": 1,
+      "&&": 2,
+      "==": 3,
+      "!=": 3,
+      "<": 4,
+      "<=": 4,
+      ">": 4,
+      ">=": 4,
+      "+": 5,
+      "-": 5,
+      "*": 6,
+      "/": 6,
+      "::": 7,
     };
     return precedences[operator] || 0;
   }
@@ -90,9 +95,35 @@ export class Parser {
 
   parse_statement() {
     if (this.matches_token("keyword", "let")) {
-      return this.parse_variable_declaration();
+      return this.parse_variable_declaration(false);
+    }
+    if (this.matches_token("identifier", "const")) {
+      return this.parse_variable_declaration(true);
+    }
+    if (this.matches_token("keyword", "if")) {
+      return this.parse_if_statement();
     }
     return this.parse_expression_statement();
+  }
+
+  parse_if_statement() {
+    this.expect("keyword", "if");
+    const condition = this.parse_expression();
+    const then_branch = this.parse_block();
+    let else_branch = null;
+    if (this.matches_token("keyword", "else")) {
+      this.advance();
+      if (this.matches_token("keyword", "if")) {
+        else_branch = this.parse_if_statement();
+      } else {
+        else_branch = this.parse_block();
+      }
+    }
+    return this.new_node("if statement", {
+      condition,
+      then_branch,
+      else_branch,
+    });
   }
 
   parse_expression_statement() {
@@ -102,18 +133,26 @@ export class Parser {
     return stmt;
   }
 
-  parse_variable_declaration() {
-    this.expect("keyword", "let");
+  parse_variable_declaration(is_const) {
+    if (is_const) {
+      this.expect("identifier", "const");
+    } else {
+      this.expect("keyword", "let");
+    }
     const identifier = this.expect("identifier");
     this.expect("symbol", "=");
     const initializer = this.parse_expression();
     this.expect("symbol", ";");
     if (identifier === null) {
-      return this.new_node("error", "Invalid variable declaration");
+      return this.new_node(
+        "error",
+        `Invalid ${is_const ? "const" : "variable"} declaration`,
+      );
     }
     return this.new_node("variable declaration", {
       identifier: identifier.value,
       initializer,
+      is_const,
     });
   }
 
@@ -178,11 +217,16 @@ export class Parser {
         if (this.matches_token("symbol", "(")) {
           identifier = this.parse_function_call(identifier);
         }
-
         return identifier;
       }
       case "symbol":
         if (token.value === "(") {
+          if (
+            this.peek_ahead().type === "symbol" &&
+            this.peek_ahead().value === ")"
+          ) {
+            return this.parse_function_expression();
+          }
           this.advance();
           const expr = this.parse_expression(0);
           if (!this.matches_token("symbol", ")")) {
@@ -203,6 +247,63 @@ export class Parser {
         this.advance();
         return this.new_node("error", "Invalid expression");
     }
+  }
+
+  parse_function_expression() {
+    const params = this.parse_parameter_list();
+    if (!this.matches_token("operator", "->")) {
+      this.report_error(
+        UnexpectedTokenError,
+        `Expected '->' after parameters, got ${this.current_token().to_string()}`,
+      );
+      return this.new_node("error", "Invalid function expression");
+    }
+    this.advance();
+    const body = this.parse_block();
+    return this.new_node("function expression", { params, body });
+  }
+
+  parse_parameter_list() {
+    this.expect("symbol", "(");
+    const params = [];
+    if (this.matches_token("symbol", ")")) {
+      this.advance();
+      return params;
+    }
+    while (true) {
+      const param = this.expect("identifier");
+      if (param === null) {
+        this.report_error(UnexpectedTokenError, "Expected parameter name");
+        break;
+      }
+      params.push(param.value);
+      if (this.matches_token("symbol", ",")) {
+        this.advance();
+      } else if (this.matches_token("symbol", ")")) {
+        break;
+      } else {
+        this.report_error(
+          UnexpectedTokenError,
+          `Expected ',' or ')' in parameter list, got ${this.current_token().to_string()}`,
+        );
+        break;
+      }
+    }
+    this.expect("symbol", ")");
+    return params;
+  }
+
+  parse_block() {
+    this.expect("symbol", "{");
+    const statements = [];
+    while (
+      !this.matches_token("symbol", "}") &&
+      !this.matches_token("eof", "eof")
+    ) {
+      statements.push(this.parse_statement());
+    }
+    this.expect("symbol", "}");
+    return this.new_node("block statement", statements);
   }
 
   parse_function_call(callee) {
