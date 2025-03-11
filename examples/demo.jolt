@@ -1,0 +1,10 @@
+const main = () -> {
+  console::log("Hello, world!");
+  let a = 5;
+
+  if a == b {
+    do_something(a);
+  } else {
+    do_nothing();
+  }
+};

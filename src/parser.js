@@ -97,7 +97,7 @@ export class Parser {
     if (this.matches_token("keyword", "let")) {
       return this.parse_variable_declaration(false);
     }
-    if (this.matches_token("identifier", "const")) {
+    if (this.matches_token("keyword", "const")) {
       return this.parse_variable_declaration(true);
     }
     if (this.matches_token("keyword", "if")) {
@@ -135,7 +135,7 @@ export class Parser {
 
   parse_variable_declaration(is_const) {
     if (is_const) {
-      this.expect("identifier", "const");
+      this.expect("keyword", "const");
     } else {
       this.expect("keyword", "let");
     }
