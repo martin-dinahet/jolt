@@ -148,6 +148,7 @@ export class Lexer {
           this.flush_buffer();
           this.add_token("operator", operator);
           this.advance();
+          this.advance();
           continue;
         }
         if (this.is_whitespace(this.cursor)) {

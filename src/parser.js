@@ -70,11 +70,12 @@ export class Parser {
 
   get_precedence(operator) {
     const precedences = {
-      "=": 0,
+      "=": 0, // Assignment has lowest precedence
       "+": 1,
       "-": 1,
       "*": 2,
       "/": 2,
+      "::": 3, // Namespace access has high precedence
     };
     return precedences[operator] || 0;
   }
@@ -118,16 +119,45 @@ export class Parser {
 
   parse_expression(precedence = 0) {
     let left = this.parse_primary();
-    while (
-      this.current_token().type === "symbol" &&
-      this.get_precedence(this.current_token().value) > precedence
-    ) {
-      const operator = this.current_token().value;
-      this.advance();
-      const right = this.parse_expression(this.get_precedence(operator));
-      left = this.new_node("binary operation", { left, right, operator });
+    while (true) {
+      if (this.matches_token("operator", "::")) {
+        left = this.parse_namespace_access(left);
+        continue;
+      }
+      if (
+        (this.current_token().type === "symbol" ||
+          this.current_token().type === "operator") &&
+        this.get_precedence(this.current_token().value) > precedence
+      ) {
+        const operator = this.current_token().value;
+        this.advance();
+        const right = this.parse_expression(this.get_precedence(operator));
+        left = this.new_node("binary operation", { left, right, operator });
+        continue;
+      }
+      break;
     }
     return left;
+  }
+
+  parse_namespace_access(namespace) {
+    this.expect("operator", "::");
+    const member = this.expect("identifier");
+    if (member === null) {
+      this.report_error(
+        UnexpectedTokenError,
+        "Expected identifier after namespace operator",
+      );
+      return this.new_node("error", "Invalid namespace access");
+    }
+    let access = this.new_node("namespace access", {
+      namespace,
+      member: member.value,
+    });
+    if (this.matches_token("symbol", "(")) {
+      access = this.parse_function_call(access);
+    }
+    return access;
   }
 
   parse_primary() {
@@ -139,12 +169,18 @@ export class Parser {
       case "string":
         this.advance();
         return this.new_node("string literal", token.value);
-      case "identifier":
+      case "identifier": {
         this.advance();
         if (token.value === "true" || token.value === "false") {
           return this.new_node("boolean literal", token.value);
         }
-        return this.new_node("identifier", token.value);
+        let identifier = this.new_node("identifier", token.value);
+        if (this.matches_token("symbol", "(")) {
+          identifier = this.parse_function_call(identifier);
+        }
+
+        return identifier;
+      }
       case "symbol":
         if (token.value === "(") {
           this.advance();
@@ -167,5 +203,31 @@ export class Parser {
         this.advance();
         return this.new_node("error", "Invalid expression");
     }
+  }
+
+  parse_function_call(callee) {
+    this.expect("symbol", "(");
+    const args = [];
+    if (this.matches_token("symbol", ")")) {
+      this.advance();
+      return this.new_node("function call", { callee, args });
+    }
+    while (true) {
+      const arg = this.parse_expression(0);
+      args.push(arg);
+      if (this.matches_token("symbol", ",")) {
+        this.advance();
+      } else if (this.matches_token("symbol", ")")) {
+        break;
+      } else {
+        this.report_error(
+          UnexpectedTokenError,
+          `Expected ',' or ')' in function call, got ${this.current_token().to_string()}`,
+        );
+        return this.new_node("error", "Invalid function call");
+      }
+    }
+    this.expect("symbol", ")");
+    return this.new_node("function call", { callee, args });
   }
 }
