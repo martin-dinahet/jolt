@@ -44,7 +44,9 @@ export class ASTNode {
               const valueStr =
                 val instanceof ASTNode
                   ? val.to_string(nestedIndent)
-                  : String(val);
+                  : typeof val === "object"
+                    ? JSON.stringify(val, null, 2).replace(/^/gm, nestedSpacing)
+                    : String(val);
               return `${nestedSpacing}${key}: ${valueStr}`;
             })
             .join(",\n") +
