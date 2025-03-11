@@ -42,8 +42,8 @@ export class ParserError extends Error {
 }
 
 export class UnexpectedTokenError extends ParserError {
-  constructor() {
-    super("unexpected character");
+  constructor(message) {
+    super(message);
     this.name = "UnexpectedTokenError";
   }
 }

@@ -14,6 +14,7 @@ import { Parser } from "./src/parser.js";
     const keywords = fs.readFileSync("./keywords.txt", "utf-8").split("\n");
 
     // printing the source file
+    //
     console.log("File reading successful!");
     console.log(source);
 

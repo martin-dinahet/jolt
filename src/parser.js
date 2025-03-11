@@ -22,8 +22,38 @@ export class Parser {
     return this.tokens[this.cursor] || new Token("eof", "eof");
   }
 
+  peek_ahead(offset = 1) {
+    return this.tokens[this.cursor + offset] || new Token("eof", "eof");
+  }
+
   advance() {
     this.cursor++;
+  }
+
+  matches_token(type, value = null) {
+    if (this.current_token().type !== type) {
+      return false;
+    }
+
+    if (value !== null && this.current_token().value !== value) {
+      return false;
+    }
+
+    return true;
+  }
+
+  expect(type, value = null) {
+    if (!this.matches_token(type, value)) {
+      this.report_error(
+        UnexpectedTokenError,
+        `Expected Token(${type}, ${value !== null ? value : "any"}), got ${this.current_token().to_string()}`,
+      );
+      return null;
+    }
+
+    const token = this.current_token();
+    this.advance();
+    return token;
   }
 
   report_error(error_class, message) {
@@ -40,6 +70,7 @@ export class Parser {
 
   get_precedence(operator) {
     const precedences = {
+      "=": 0,
       "+": 1,
       "-": 1,
       "*": 2,
@@ -57,12 +88,40 @@ export class Parser {
   }
 
   parse_statement() {
-    return this.parse_expression();
+    if (this.matches_token("keyword", "let")) {
+      return this.parse_variable_declaration();
+    }
+    return this.parse_expression_statement();
+  }
+
+  parse_expression_statement() {
+    const expr = this.parse_expression();
+    const stmt = this.new_node("expression statement", expr);
+    this.expect("symbol", ";");
+    return stmt;
+  }
+
+  parse_variable_declaration() {
+    this.expect("keyword", "let");
+    const identifier = this.expect("identifier");
+    this.expect("symbol", "=");
+    const initializer = this.parse_expression();
+    this.expect("symbol", ";");
+    if (identifier === null) {
+      return this.new_node("error", "Invalid variable declaration");
+    }
+    return this.new_node("variable declaration", {
+      identifier: identifier.value,
+      initializer,
+    });
   }
 
   parse_expression(precedence = 0) {
-    let left = this.parse_literal();
-    while (this.get_precedence(this.current_token().value) > precedence) {
+    let left = this.parse_primary();
+    while (
+      this.current_token().type === "symbol" &&
+      this.get_precedence(this.current_token().value) > precedence
+    ) {
       const operator = this.current_token().value;
       this.advance();
       const right = this.parse_expression(this.get_precedence(operator));
@@ -71,24 +130,42 @@ export class Parser {
     return left;
   }
 
-  parse_literal() {
+  parse_primary() {
     const token = this.current_token();
-    this.advance();
     switch (token.type) {
       case "number":
+        this.advance();
         return this.new_node("number literal", token.value);
       case "string":
+        this.advance();
         return this.new_node("string literal", token.value);
       case "identifier":
+        this.advance();
         if (token.value === "true" || token.value === "false") {
           return this.new_node("boolean literal", token.value);
         }
         return this.new_node("identifier", token.value);
+      case "symbol":
+        if (token.value === "(") {
+          this.advance();
+          const expr = this.parse_expression(0);
+          if (!this.matches_token("symbol", ")")) {
+            this.report_error(
+              UnexpectedTokenError,
+              `Expected closing parenthesis, got ${this.current_token().to_string()}`,
+            );
+            return this.new_node("error", "Missing closing parenthesis");
+          }
+          this.advance();
+          return this.new_node("parenthesized expression", expr);
+        }
       default:
         this.report_error(
           UnexpectedTokenError,
-          "unknown token when parsing literal",
+          `Unexpected token ${token.to_string()} when parsing expression`,
         );
+        this.advance();
+        return this.new_node("error", "Invalid expression");
     }
   }
 }
