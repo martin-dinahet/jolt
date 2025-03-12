@@ -13,11 +13,6 @@ import { Parser } from "./src/parser.js";
     const source = fs.readFileSync(filePath, "utf-8");
     const keywords = fs.readFileSync("./keywords.txt", "utf-8").split("\n");
 
-    // printing the source file
-    //
-    console.log("File reading successful!");
-    console.log(source);
-
     // lexing
     const lexer = new Lexer(source, keywords);
     const tokens = lexer.generate_tokens();
