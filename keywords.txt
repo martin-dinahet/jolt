@@ -2,4 +2,7 @@ let
 const
 if
 else
+for
+in
+while
 return

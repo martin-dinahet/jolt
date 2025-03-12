@@ -89,7 +89,6 @@ export class Parser {
     while (this.current_token().type !== "eof") {
       this.add_node(this.parse_statement());
     }
-    this.add_node(this.new_node("end of file", {}));
     return this.program_block;
   }
 
@@ -106,7 +105,96 @@ export class Parser {
     if (this.matches_token("keyword", "return")) {
       return this.parse_return_statement();
     }
+    if (this.matches_token("keyword", "for")) {
+      return this.parse_for_statement();
+    }
+    if (this.matches_token("keyword", "while")) {
+      return this.parse_while_statement();
+    }
+    if (this.matches_token("keyword", "break")) {
+      return this.parse_break_statement();
+    }
+    if (this.matches_token("keyword", "continue")) {
+      return this.parse_continue_statement();
+    }
     return this.parse_expression_statement();
+  }
+
+  parse_while_statement() {
+    this.expect("keyword", "while");
+
+    // Parse the condition expression
+    const condition = this.parse_expression();
+
+    // Parse the loop body
+    const body = this.parse_block();
+
+    // Handle optional semicolon after block
+    if (this.matches_token("symbol", ";")) {
+      this.advance();
+    }
+
+    return this.new_node("while_statement", {
+      condition,
+      body,
+    });
+  }
+
+  parse_for_statement() {
+    this.expect("keyword", "for");
+
+    // Only handle for-in loops
+    if (
+      this.matches_token("keyword", "const") ||
+      this.matches_token("keyword", "let")
+    ) {
+      const is_const = this.matches_token("keyword", "const");
+      this.advance();
+      const identifier = this.expect("identifier");
+
+      if (this.matches_token("keyword", "in")) {
+        // This is a for-in loop
+        this.advance(); // Consume 'in' token
+        const iterable = this.parse_expression();
+        const body = this.parse_block();
+
+        // Handle optional semicolon after block
+        if (this.matches_token("symbol", ";")) {
+          this.advance();
+        }
+
+        return this.new_node("for_in_statement", {
+          identifier: identifier.value,
+          is_const,
+          iterable,
+          body,
+        });
+      } else {
+        this.report_error(
+          UnexpectedTokenError,
+          `Expected 'in' after identifier in for loop, got ${this.current_token().to_string()}`,
+        );
+        return this.new_node("error", "Invalid for-in loop");
+      }
+    } else {
+      this.report_error(
+        UnexpectedTokenError,
+        `Expected 'const' or 'let' after 'for', got ${this.current_token().to_string()}`,
+      );
+      return this.new_node("error", "Invalid for loop");
+    }
+  }
+
+  parse_break_statement() {
+    this.expect("keyword", "break");
+    this.expect("symbol", ";");
+    return this.new_node("break_statement", {});
+  }
+
+  parse_continue_statement() {
+    this.expect("keyword", "continue");
+    this.expect("symbol", ";");
+    return this.new_node("continue_statement", {});
   }
 
   parse_return_statement() {
@@ -136,6 +224,12 @@ export class Parser {
         else_branch = this.parse_block();
       }
     }
+
+    // Handle optional semicolon after block
+    if (this.matches_token("symbol", ";")) {
+      this.advance();
+    }
+
     return this.new_node("if statement", {
       condition,
       then_branch,
@@ -166,8 +260,28 @@ export class Parser {
     }
 
     this.expect("symbol", "=");
-    const initializer = this.parse_expression();
-    this.expect("symbol", ";");
+
+    // Check if this is a function expression
+    let initializer;
+    if (
+      this.matches_token("symbol", "(") &&
+      this.peek_ahead().type === "symbol" &&
+      this.peek_ahead().value === ")"
+    ) {
+      initializer = this.parse_function_expression();
+
+      // Make semicolon optional for function expressions at the top level
+      if (this.matches_token("symbol", ";")) {
+        this.advance();
+      } else if (this.current_token().type === "eof") {
+        // If we're at the end of the file, don't expect a semicolon
+      } else {
+        this.expect("symbol", ";");
+      }
+    } else {
+      initializer = this.parse_expression();
+      this.expect("symbol", ";");
+    }
 
     if (identifier === null) {
       return this.new_node(
@@ -380,6 +494,12 @@ export class Parser {
     }
 
     const body = this.parse_block();
+
+    // Handle optional semicolon after block
+    if (this.matches_token("symbol", ";")) {
+      this.advance();
+    }
+
     return this.new_node("function expression", { params, return_type, body });
   }
 

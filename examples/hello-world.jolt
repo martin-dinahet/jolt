@@ -1,6 +1,8 @@
 const main = () -> Void {
-  let msg: String = "Hello, World!";
-  std::print(msg);
-  return;
+  for const i in math::range(0, 10) {
+    while i < 8 {
+      std::print(i);
+    };
+  };
 };
 
