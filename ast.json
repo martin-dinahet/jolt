@@ -1,0 +1,83 @@
+{
+  "type": "block statement",
+  "value": [
+    {
+      "type": "variable declaration",
+      "value": {
+        "identifier": "main",
+        "type_annotation": null,
+        "initializer": {
+          "type": "function expression",
+          "value": {
+            "params": [],
+            "return_type": {
+              "type": "type",
+              "value": {
+                "name": "Void",
+                "parameters": null
+              }
+            },
+            "body": {
+              "type": "block statement",
+              "value": [
+                {
+                  "type": "variable declaration",
+                  "value": {
+                    "identifier": "msg",
+                    "type_annotation": {
+                      "type": "type",
+                      "value": {
+                        "name": "String",
+                        "parameters": null
+                      }
+                    },
+                    "initializer": {
+                      "type": "string literal",
+                      "value": "Hello, World!"
+                    },
+                    "is_const": false
+                  }
+                },
+                {
+                  "type": "expression statement",
+                  "value": {
+                    "type": "function call",
+                    "value": {
+                      "callee": {
+                        "type": "namespace access",
+                        "value": {
+                          "namespace": {
+                            "type": "identifier",
+                            "value": "std"
+                          },
+                          "member": "print"
+                        }
+                      },
+                      "args": [
+                        {
+                          "type": "identifier",
+                          "value": "msg"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "return statement",
+                  "value": {
+                    "value": null
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "is_const": true
+      }
+    },
+    {
+      "type": "end of file",
+      "value": {}
+    }
+  ]
+}

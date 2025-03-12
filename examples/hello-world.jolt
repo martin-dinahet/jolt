@@ -1,4 +1,6 @@
-const main = () -> {
-  std::print("Hello, World!");
+const main = () -> Void {
+  let msg: String = "Hello, World!";
+  std::print(msg);
+  return;
 };
 

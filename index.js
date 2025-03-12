@@ -26,11 +26,6 @@ import { Parser } from "./src/parser.js";
       lexer.get_errors().forEach((error) => {
         console.error(error.toString());
       });
-    } else {
-      console.log("Lexing successful!");
-      tokens.forEach((token) => {
-        console.log(token.to_string());
-      });
     }
 
     // parsing
@@ -42,8 +37,8 @@ import { Parser } from "./src/parser.js";
         console.error(error.toString());
       });
     } else {
-      console.log("Parsing successful!");
-      console.log(program.to_string());
+      fs.writeFileSync("ast.json", JSON.stringify(program, null, 2), "utf-8");
+      console.log();
     }
   } catch (err) {
     console.error("Error reading the file:", err);

@@ -4,60 +4,26 @@ export class ASTNode {
     this.value = value;
   }
 
-  to_string(indent = 0) {
-    const spacing = " ".repeat(indent);
-    const nestedIndent = indent + 2;
-    const nestedSpacing = " ".repeat(nestedIndent);
-    const t = this.type;
-    let v;
+  toJSON() {
+    return {
+      type: this.type,
+      value: this.#serializeValue(this.value),
+    };
+  }
 
-    if (this.value instanceof ASTNode) {
-      v = "\n" + nestedSpacing + this.value.to_string(nestedIndent);
-    } else if (Array.isArray(this.value)) {
-      if (this.value.length === 0) {
-        v = "[]";
-      } else {
-        v =
-          "[\n" +
-          this.value
-            .map(
-              (item) =>
-                nestedSpacing +
-                (item instanceof ASTNode
-                  ? item.to_string(nestedIndent)
-                  : String(item)),
-            )
-            .join(",\n") +
-          "\n" +
-          spacing +
-          "]";
-      }
-    } else if (typeof this.value === "object" && this.value !== null) {
-      const entries = Object.entries(this.value);
-      if (entries.length === 0) {
-        v = "{}";
-      } else {
-        v =
-          "{\n" +
-          entries
-            .map(([key, val]) => {
-              const valueStr =
-                val instanceof ASTNode
-                  ? val.to_string(nestedIndent)
-                  : typeof val === "object"
-                    ? JSON.stringify(val, null, 2).replace(/^/gm, nestedSpacing)
-                    : String(val);
-              return `${nestedSpacing}${key}: ${valueStr}`;
-            })
-            .join(",\n") +
-          "\n" +
-          spacing +
-          "}";
-      }
-    } else {
-      v = String(this.value);
+  #serializeValue(value) {
+    if (value instanceof ASTNode) {
+      return value.toJSON();
+    } else if (Array.isArray(value)) {
+      return value.map((item) => this.#serializeValue(item));
+    } else if (typeof value === "object" && value !== null) {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, val]) => [
+          key,
+          this.#serializeValue(val),
+        ]),
+      );
     }
-
-    return `ASTNode(${t}, ${v})`;
+    return value;
   }
 }

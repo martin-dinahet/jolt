@@ -103,7 +103,24 @@ export class Parser {
     if (this.matches_token("keyword", "if")) {
       return this.parse_if_statement();
     }
+    if (this.matches_token("keyword", "return")) {
+      return this.parse_return_statement();
+    }
     return this.parse_expression_statement();
+  }
+
+  parse_return_statement() {
+    this.expect("keyword", "return");
+
+    // Check if there's an expression after the return keyword
+    let value = null;
+    if (!this.matches_token("symbol", ";")) {
+      value = this.parse_expression();
+    }
+
+    this.expect("symbol", ";");
+
+    return this.new_node("return statement", { value });
   }
 
   parse_if_statement() {
@@ -140,19 +157,84 @@ export class Parser {
       this.expect("keyword", "let");
     }
     const identifier = this.expect("identifier");
+
+    // Parse optional type annotation
+    let type_annotation = null;
+    if (this.matches_token("symbol", ":")) {
+      this.advance();
+      type_annotation = this.parse_type();
+    }
+
     this.expect("symbol", "=");
     const initializer = this.parse_expression();
     this.expect("symbol", ";");
+
     if (identifier === null) {
       return this.new_node(
         "error",
         `Invalid ${is_const ? "const" : "variable"} declaration`,
       );
     }
+
     return this.new_node("variable declaration", {
       identifier: identifier.value,
+      type_annotation,
       initializer,
       is_const,
+    });
+  }
+
+  parse_type() {
+    const base_type_token = this.expect("identifier");
+    if (base_type_token === null) {
+      this.report_error(UnexpectedTokenError, "Expected type name");
+      return null;
+    }
+
+    // Check for generic type parameters
+    if (this.matches_token("symbol", "<")) {
+      return this.parse_generic_type(base_type_token.value);
+    }
+
+    return this.new_node("type", {
+      name: base_type_token.value,
+      parameters: null,
+    });
+  }
+
+  parse_generic_type(base_type_name) {
+    this.expect("symbol", "<");
+
+    const type_parameters = [];
+
+    // Parse comma-separated type parameters
+    while (true) {
+      const type_param = this.parse_type();
+      if (type_param === null) {
+        this.report_error(UnexpectedTokenError, "Expected type parameter");
+        break;
+      }
+
+      type_parameters.push(type_param);
+
+      if (this.matches_token("symbol", ",")) {
+        this.advance();
+      } else if (this.matches_token("symbol", ">")) {
+        break;
+      } else {
+        this.report_error(
+          UnexpectedTokenError,
+          `Expected ',' or '>' in type parameters, got ${this.current_token().to_string()}`,
+        );
+        break;
+      }
+    }
+
+    this.expect("symbol", ">");
+
+    return this.new_node("type", {
+      name: base_type_name,
+      parameters: type_parameters,
     });
   }
 
@@ -238,6 +320,8 @@ export class Parser {
           }
           this.advance();
           return this.new_node("parenthesized expression", expr);
+        } else if (token.value === "[") {
+          return this.parse_array_literal();
         }
       default:
         this.report_error(
@@ -249,18 +333,54 @@ export class Parser {
     }
   }
 
+  parse_array_literal() {
+    this.expect("symbol", "[");
+    const elements = [];
+
+    if (this.matches_token("symbol", "]")) {
+      this.advance();
+      return this.new_node("array literal", elements);
+    }
+
+    while (true) {
+      const element = this.parse_expression(0);
+      elements.push(element);
+
+      if (this.matches_token("symbol", ",")) {
+        this.advance();
+      } else if (this.matches_token("symbol", "]")) {
+        break;
+      } else {
+        this.report_error(
+          UnexpectedTokenError,
+          `Expected ',' or ']' in array literal, got ${this.current_token().to_string()}`,
+        );
+        break;
+      }
+    }
+
+    this.expect("symbol", "]");
+    return this.new_node("array literal", elements);
+  }
+
   parse_function_expression() {
     const params = this.parse_parameter_list();
-    if (!this.matches_token("operator", "->")) {
+
+    // Parse return type
+    let return_type = null;
+    if (this.matches_token("operator", "->")) {
+      this.advance();
+      return_type = this.parse_type();
+    } else {
       this.report_error(
         UnexpectedTokenError,
         `Expected '->' after parameters, got ${this.current_token().to_string()}`,
       );
       return this.new_node("error", "Invalid function expression");
     }
-    this.advance();
+
     const body = this.parse_block();
-    return this.new_node("function expression", { params, body });
+    return this.new_node("function expression", { params, return_type, body });
   }
 
   parse_parameter_list() {
@@ -270,13 +390,26 @@ export class Parser {
       this.advance();
       return params;
     }
+
     while (true) {
-      const param = this.expect("identifier");
-      if (param === null) {
+      const param_name = this.expect("identifier");
+      if (param_name === null) {
         this.report_error(UnexpectedTokenError, "Expected parameter name");
         break;
       }
-      params.push(param.value);
+
+      // Parse parameter type annotation
+      let param_type = null;
+      if (this.matches_token("symbol", ":")) {
+        this.advance();
+        param_type = this.parse_type();
+      }
+
+      params.push({
+        name: param_name.value,
+        type: param_type,
+      });
+
       if (this.matches_token("symbol", ",")) {
         this.advance();
       } else if (this.matches_token("symbol", ")")) {
@@ -289,6 +422,7 @@ export class Parser {
         break;
       }
     }
+
     this.expect("symbol", ")");
     return params;
   }
