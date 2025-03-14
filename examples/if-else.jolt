@@ -1,7 +1,0 @@
-if a > b {
-  do_something(a);
-} else if a < b {
-  do_something_else(b);
-} else {
-  no_nothing(c);
-}

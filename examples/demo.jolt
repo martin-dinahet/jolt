@@ -1,10 +1,6 @@
-const main = () -> {
-  console::log("Hello, world!");
-  let a = 5;
-
-  if a == b {
-    do_something(a);
-  } else {
-    do_nothing();
-  }
-};
+const main = () -> Void {
+  const vector = Vector<Number>::new();
+  for const i in std::range(0, vector::length) {
+    std::print(i);
+  };
+}

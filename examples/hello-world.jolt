@@ -1,8 +1,0 @@
-const main = () -> Void {
-  for const i in math::range(0, 10) {
-    while i < 8 {
-      std::print(i);
-    };
-  };
-};
-
