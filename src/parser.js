@@ -93,6 +93,12 @@ export class Parser {
   }
 
   parse_statement() {
+    if (this.matches_token("keyword", "struct")) {
+      return this.parse_struct_declaration();
+    }
+    if (this.matches_token("keyword", "impl")) {
+      return this.parse_impl_declaration();
+    }
     if (this.matches_token("keyword", "let")) {
       return this.parse_variable_declaration(false);
     }
@@ -117,19 +123,95 @@ export class Parser {
     if (this.matches_token("keyword", "continue")) {
       return this.parse_continue_statement();
     }
+    if (this.matches_token("keyword", "fn")) {
+      return this.parse_function_declaration();
+    }
     return this.parse_expression_statement();
+  }
+
+  parse_struct_declaration() {
+    this.expect("keyword", "struct");
+    const name = this.expect("identifier");
+    if (name === null) {
+      this.report_error(UnexpectedTokenError, "Expected struct name");
+      return this.new_node("error", "Invalid struct declaration");
+    }
+
+    this.expect("symbol", "{");
+    const fields = [];
+
+    while (
+      !this.matches_token("symbol", "}") &&
+      !this.matches_token("eof", "eof")
+    ) {
+      const field_name = this.expect("identifier");
+      if (field_name === null) {
+        this.report_error(UnexpectedTokenError, "Expected field name");
+        break;
+      }
+
+      this.expect("symbol", ":");
+      const field_type = this.parse_type();
+
+      fields.push({
+        name: field_name.value,
+        type: field_type,
+      });
+
+      if (this.matches_token("symbol", ",")) {
+        this.advance();
+      }
+    }
+
+    this.expect("symbol", "}");
+
+    return this.new_node("struct_declaration", {
+      name: name.value,
+      fields,
+    });
+  }
+
+  parse_impl_declaration() {
+    this.expect("keyword", "impl");
+    const struct_name = this.expect("identifier");
+    if (struct_name === null) {
+      this.report_error(
+        UnexpectedTokenError,
+        "Expected struct name after impl",
+      );
+      return this.new_node("error", "Invalid impl declaration");
+    }
+
+    this.expect("symbol", "{");
+    const methods = [];
+
+    while (
+      !this.matches_token("symbol", "}") &&
+      !this.matches_token("eof", "eof")
+    ) {
+      if (this.matches_token("keyword", "fn")) {
+        methods.push(this.parse_function_declaration());
+      } else {
+        this.report_error(
+          UnexpectedTokenError,
+          `Expected method declaration, got ${this.current_token().to_string()}`,
+        );
+        this.advance();
+      }
+    }
+
+    this.expect("symbol", "}");
+
+    return this.new_node("impl_declaration", {
+      struct_name: struct_name.value,
+      methods,
+    });
   }
 
   parse_while_statement() {
     this.expect("keyword", "while");
-
-    // Parse the condition expression
     const condition = this.parse_expression();
-
-    // Parse the loop body
     const body = this.parse_block();
-
-    // Handle optional semicolon after block
     if (this.matches_token("symbol", ";")) {
       this.advance();
     }
@@ -142,8 +224,6 @@ export class Parser {
 
   parse_for_statement() {
     this.expect("keyword", "for");
-
-    // Only handle for-in loops
     if (
       this.matches_token("keyword", "const") ||
       this.matches_token("keyword", "let")
@@ -153,15 +233,9 @@ export class Parser {
       const identifier = this.expect("identifier");
 
       if (this.matches_token("keyword", "in")) {
-        // This is a for-in loop
-        this.advance(); // Consume 'in' token
+        this.advance();
         const iterable = this.parse_expression();
         const body = this.parse_block();
-
-        // Handle optional semicolon after block
-        if (this.matches_token("symbol", ";")) {
-          this.advance();
-        }
 
         return this.new_node("for_in_statement", {
           identifier: identifier.value,
@@ -199,15 +273,11 @@ export class Parser {
 
   parse_return_statement() {
     this.expect("keyword", "return");
-
-    // Check if there's an expression after the return keyword
     let value = null;
     if (!this.matches_token("symbol", ";")) {
       value = this.parse_expression();
     }
-
     this.expect("symbol", ";");
-
     return this.new_node("return statement", { value });
   }
 
@@ -224,12 +294,6 @@ export class Parser {
         else_branch = this.parse_block();
       }
     }
-
-    // Handle optional semicolon after block
-    if (this.matches_token("symbol", ";")) {
-      this.advance();
-    }
-
     return this.new_node("if statement", {
       condition,
       then_branch,
@@ -251,8 +315,6 @@ export class Parser {
       this.expect("keyword", "let");
     }
     const identifier = this.expect("identifier");
-
-    // Parse optional type annotation
     let type_annotation = null;
     if (this.matches_token("symbol", ":")) {
       this.advance();
@@ -260,8 +322,6 @@ export class Parser {
     }
 
     this.expect("symbol", "=");
-
-    // Check if this is a function expression
     let initializer;
     if (
       this.matches_token("symbol", "(") &&
@@ -269,12 +329,9 @@ export class Parser {
       this.peek_ahead().value === ")"
     ) {
       initializer = this.parse_function_expression();
-
-      // Make semicolon optional for function expressions at the top level
       if (this.matches_token("symbol", ";")) {
         this.advance();
       } else if (this.current_token().type === "eof") {
-        // If we're at the end of the file, don't expect a semicolon
       } else {
         this.expect("symbol", ";");
       }
@@ -282,14 +339,12 @@ export class Parser {
       initializer = this.parse_expression();
       this.expect("symbol", ";");
     }
-
     if (identifier === null) {
       return this.new_node(
         "error",
         `Invalid ${is_const ? "const" : "variable"} declaration`,
       );
     }
-
     return this.new_node("variable declaration", {
       identifier: identifier.value,
       type_annotation,
@@ -304,12 +359,9 @@ export class Parser {
       this.report_error(UnexpectedTokenError, "Expected type name");
       return null;
     }
-
-    // Check for generic type parameters
     if (this.matches_token("symbol", "<")) {
       return this.parse_generic_type(base_type_token.value);
     }
-
     return this.new_node("type", {
       name: base_type_token.value,
       parameters: null,
@@ -320,17 +372,13 @@ export class Parser {
     this.expect("symbol", "<");
 
     const type_parameters = [];
-
-    // Parse comma-separated type parameters
     while (true) {
       const type_param = this.parse_type();
       if (type_param === null) {
         this.report_error(UnexpectedTokenError, "Expected type parameter");
         break;
       }
-
       type_parameters.push(type_param);
-
       if (this.matches_token("symbol", ",")) {
         this.advance();
       } else if (this.matches_token("symbol", ">")) {
@@ -413,6 +461,9 @@ export class Parser {
         if (this.matches_token("symbol", "(")) {
           identifier = this.parse_function_call(identifier);
         }
+        if (this.matches_token("symbol", "{")) {
+          identifier = this.parse_struct_initialization(identifier);
+        }
         return identifier;
       }
       case "symbol":
@@ -447,6 +498,52 @@ export class Parser {
     }
   }
 
+  parse_struct_initialization(struct_name) {
+    this.expect("symbol", "{");
+    const fields = [];
+
+    if (this.matches_token("symbol", "}")) {
+      this.advance();
+      return this.new_node("struct_initialization", { struct_name, fields });
+    }
+
+    while (true) {
+      const field_name = this.expect("identifier");
+      if (field_name === null) {
+        this.report_error(UnexpectedTokenError, "Expected field name");
+        break;
+      }
+
+      let field_value;
+      if (this.matches_token("symbol", ":")) {
+        this.advance();
+        field_value = this.parse_expression(0);
+      } else {
+        field_value = this.new_node("identifier", field_name.value);
+      }
+
+      fields.push({
+        name: field_name.value,
+        value: field_value,
+      });
+
+      if (this.matches_token("symbol", ",")) {
+        this.advance();
+      } else if (this.matches_token("symbol", "}")) {
+        break;
+      } else {
+        this.report_error(
+          UnexpectedTokenError,
+          `Expected ',' or '}' in struct initialization, got ${this.current_token().to_string()}`,
+        );
+        break;
+      }
+    }
+
+    this.expect("symbol", "}");
+    return this.new_node("struct_initialization", { struct_name, fields });
+  }
+
   parse_array_literal() {
     this.expect("symbol", "[");
     const elements = [];
@@ -477,10 +574,26 @@ export class Parser {
     return this.new_node("array literal", elements);
   }
 
+  parse_function_declaration() {
+    this.expect("keyword", "fn");
+    const identifier = this.expect("identifier");
+    const params = this.parse_parameter_list();
+    let return_type = null;
+    if (this.matches_token("symbol", ":")) {
+      this.advance();
+      return_type = this.parse_type();
+    }
+    const body = this.parse_block();
+    return this.new_node("function declaration", {
+      identifier,
+      params,
+      return_type,
+      body,
+    });
+  }
+
   parse_function_expression() {
     const params = this.parse_parameter_list();
-
-    // Parse return type
     let return_type = null;
     if (this.matches_token("operator", "->")) {
       this.advance();
@@ -494,12 +607,9 @@ export class Parser {
     }
 
     const body = this.parse_block();
-
-    // Handle optional semicolon after block
     if (this.matches_token("symbol", ";")) {
       this.advance();
     }
-
     return this.new_node("function expression", { params, return_type, body });
   }
 
@@ -517,14 +627,11 @@ export class Parser {
         this.report_error(UnexpectedTokenError, "Expected parameter name");
         break;
       }
-
-      // Parse parameter type annotation
       let param_type = null;
       if (this.matches_token("symbol", ":")) {
         this.advance();
         param_type = this.parse_type();
       }
-
       params.push({
         name: param_name.value,
         type: param_type,
@@ -542,7 +649,6 @@ export class Parser {
         break;
       }
     }
-
     this.expect("symbol", ")");
     return params;
   }

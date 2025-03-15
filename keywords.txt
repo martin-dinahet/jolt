@@ -6,3 +6,6 @@ for
 in
 while
 return
+fn
+struct
+impl

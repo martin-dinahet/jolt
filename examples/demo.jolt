@@ -1,0 +1,11 @@
+struct User {
+  id: Number,
+  username: String,
+  password: String,
+}
+
+impl User {
+  fn new(username: String, password: String): User {
+    return User { id: 1, username, password };
+  }
+}
