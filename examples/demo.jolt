@@ -9,3 +9,4 @@ impl User {
     return User { id: 1, username, password };
   }
 }
+

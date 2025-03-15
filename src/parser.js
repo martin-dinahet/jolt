@@ -139,7 +139,6 @@ export class Parser {
 
     this.expect("symbol", "{");
     const fields = [];
-
     while (
       !this.matches_token("symbol", "}") &&
       !this.matches_token("eof", "eof")
@@ -149,22 +148,17 @@ export class Parser {
         this.report_error(UnexpectedTokenError, "Expected field name");
         break;
       }
-
       this.expect("symbol", ":");
       const field_type = this.parse_type();
-
       fields.push({
         name: field_name.value,
         type: field_type,
       });
-
       if (this.matches_token("symbol", ",")) {
         this.advance();
       }
     }
-
     this.expect("symbol", "}");
-
     return this.new_node("struct_declaration", {
       name: name.value,
       fields,
@@ -184,7 +178,6 @@ export class Parser {
 
     this.expect("symbol", "{");
     const methods = [];
-
     while (
       !this.matches_token("symbol", "}") &&
       !this.matches_token("eof", "eof")
@@ -199,9 +192,7 @@ export class Parser {
         this.advance();
       }
     }
-
     this.expect("symbol", "}");
-
     return this.new_node("impl_declaration", {
       struct_name: struct_name.value,
       methods,
@@ -215,7 +206,6 @@ export class Parser {
     if (this.matches_token("symbol", ";")) {
       this.advance();
     }
-
     return this.new_node("while_statement", {
       condition,
       body,
@@ -370,7 +360,6 @@ export class Parser {
 
   parse_generic_type(base_type_name) {
     this.expect("symbol", "<");
-
     const type_parameters = [];
     while (true) {
       const type_param = this.parse_type();
@@ -391,9 +380,7 @@ export class Parser {
         break;
       }
     }
-
     this.expect("symbol", ">");
-
     return this.new_node("type", {
       name: base_type_name,
       parameters: type_parameters,
@@ -437,10 +424,64 @@ export class Parser {
       namespace,
       member: member.value,
     });
+    while (this.matches_token("operator", "::")) {
+      this.advance();
+      const next_member = this.expect("identifier");
+      if (next_member === null) {
+        this.report_error(
+          UnexpectedTokenError,
+          "Expected identifier after '::'",
+        );
+        return this.new_node("error", "Invalid namespace access");
+      }
+      access = this.new_node("namespace access", {
+        namespace: access,
+        member: next_member.value,
+      });
+    }
     if (this.matches_token("symbol", "(")) {
       access = this.parse_function_call(access);
     }
     return access;
+  }
+
+  parse_struct_initialization(struct_name) {
+    this.expect("symbol", "{");
+    const fields = [];
+    while (!this.matches_token("symbol", "}")) {
+      const field_name = this.expect("identifier");
+      if (field_name === null) {
+        this.report_error(UnexpectedTokenError, "Expected field name");
+        break;
+      }
+      if (this.matches_token("symbol", ":")) {
+        this.expect("symbol", ":");
+        const field_value = this.parse_expression(0);
+        fields.push({
+          name: field_name.value,
+          value: field_value,
+        });
+      } else {
+        fields.push({
+          name: field_name.value,
+          value: field_name.value,
+        });
+      }
+
+      if (this.matches_token("symbol", ",")) {
+        this.advance();
+      } else if (this.matches_token("symbol", "}")) {
+        break;
+      } else {
+        this.report_error(
+          UnexpectedTokenError,
+          `Expected ',' or '}' in struct initialization, got ${this.current_token().to_string()}`,
+        );
+        break;
+      }
+    }
+    this.expect("symbol", "}");
+    return this.new_node("struct_initialization", { struct_name, fields });
   }
 
   parse_primary() {
@@ -498,52 +539,6 @@ export class Parser {
     }
   }
 
-  parse_struct_initialization(struct_name) {
-    this.expect("symbol", "{");
-    const fields = [];
-
-    if (this.matches_token("symbol", "}")) {
-      this.advance();
-      return this.new_node("struct_initialization", { struct_name, fields });
-    }
-
-    while (true) {
-      const field_name = this.expect("identifier");
-      if (field_name === null) {
-        this.report_error(UnexpectedTokenError, "Expected field name");
-        break;
-      }
-
-      let field_value;
-      if (this.matches_token("symbol", ":")) {
-        this.advance();
-        field_value = this.parse_expression(0);
-      } else {
-        field_value = this.new_node("identifier", field_name.value);
-      }
-
-      fields.push({
-        name: field_name.value,
-        value: field_value,
-      });
-
-      if (this.matches_token("symbol", ",")) {
-        this.advance();
-      } else if (this.matches_token("symbol", "}")) {
-        break;
-      } else {
-        this.report_error(
-          UnexpectedTokenError,
-          `Expected ',' or '}' in struct initialization, got ${this.current_token().to_string()}`,
-        );
-        break;
-      }
-    }
-
-    this.expect("symbol", "}");
-    return this.new_node("struct_initialization", { struct_name, fields });
-  }
-
   parse_array_literal() {
     this.expect("symbol", "[");
     const elements = [];
@@ -569,7 +564,6 @@ export class Parser {
         break;
       }
     }
-
     this.expect("symbol", "]");
     return this.new_node("array literal", elements);
   }
@@ -620,7 +614,6 @@ export class Parser {
       this.advance();
       return params;
     }
-
     while (true) {
       const param_name = this.expect("identifier");
       if (param_name === null) {
@@ -636,7 +629,6 @@ export class Parser {
         name: param_name.value,
         type: param_type,
       });
-
       if (this.matches_token("symbol", ",")) {
         this.advance();
       } else if (this.matches_token("symbol", ")")) {
