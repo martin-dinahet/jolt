@@ -10,3 +10,12 @@ impl User {
   }
 }
 
+struct Database {
+  users: Vector<User>,
+}
+
+impl Database {
+  fn new(): Database {
+    return Database { users: Vector::new(User) };
+  }
+}
